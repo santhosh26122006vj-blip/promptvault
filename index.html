@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PromptVault – AI Prompt Library</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-wrapper">
+    <!-- Brand side -->
+    <div class="auth-brand">
+      <h1 class="brand-title">PromptVault</h1>
+      <p class="brand-subtitle">Your personal AI Prompt Library</p>
+      <ul class="brand-points">
+        <li>Save and organize AI prompts</li>
+        <li>Search instantly by keyword or category</li>
+        <li>Mark your favorites for quick access</li>
+      </ul>
+    </div>
+
+    <!-- Auth card -->
+    <div class="auth-card">
+
+      <!-- Tabs -->
+      <div class="auth-tabs">
+        <button class="tab-btn active" id="loginTabBtn" onclick="switchTab('login')">Login</button>
+        <button class="tab-btn" id="registerTabBtn" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- Alert message box -->
+      <div id="authMessage" class="auth-message hidden"></div>
+
+      <!-- LOGIN FORM -->
+      <form id="loginForm" class="auth-form">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="you@example.com" required />
+
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" placeholder="Enter your password" required />
+
+        <div class="form-row-between">
+          <label class="remember-label">
+            <input type="checkbox" id="rememberMe" checked />
+            Remember me
+          </label>
+          <a href="#" id="forgotPasswordLink" class="link-small">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn-primary full-width">Login</button>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="registerForm" class="auth-form hidden">
+        <label for="registerName">Full Name</label>
+        <input type="text" id="registerName" placeholder="Your name" required />
+
+        <label for="registerEmail">Email</label>
+        <input type="email" id="registerEmail" placeholder="you@example.com" required />
+
+        <label for="registerPassword">Password</label>
+        <input type="password" id="registerPassword" placeholder="Minimum 6 characters" required minlength="6" />
+
+        <label for="registerConfirm">Confirm Password</label>
+        <input type="password" id="registerConfirm" placeholder="Re-enter password" required minlength="6" />
+
+        <button type="submit" class="btn-primary full-width">Create Account</button>
+      </form>
+
+      <!-- FORGOT PASSWORD FORM -->
+      <form id="forgotForm" class="auth-form hidden">
+        <p class="form-hint">Enter your email and we'll send a password reset link.</p>
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" placeholder="you@example.com" required />
+
+        <button type="submit" class="btn-primary full-width">Send Reset Link</button>
+        <button type="button" class="btn-secondary full-width" onclick="switchTab('login')">Back to Login</button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Firebase SDK (modular, via CDN) -->
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
+
+  <!-- Small inline script only for tab switching UI (no Firebase logic here) -->
+  <script>
+    function switchTab(tab) {
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const forgotForm = document.getElementById('forgotForm');
+      const loginTabBtn = document.getElementById('loginTabBtn');
+      const registerTabBtn = document.getElementById('registerTabBtn');
+      const authMessage = document.getElementById('authMessage');
+
+      authMessage.classList.add('hidden');
+
+      loginForm.classList.add('hidden');
+      registerForm.classList.add('hidden');
+      forgotForm.classList.add('hidden');
+      loginTabBtn.classList.remove('active');
+      registerTabBtn.classList.remove('active');
+
+      if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        loginTabBtn.classList.add('active');
+      } else if (tab === 'register') {
+        registerForm.classList.remove('hidden');
+        registerTabBtn.classList.add('active');
+      } else if (tab === 'forgot') {
+        forgotForm.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      switchTab('forgot');
+    });
+  </script>
+
+</body>
+</html>

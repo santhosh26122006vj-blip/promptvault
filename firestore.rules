@@ -1,0 +1,77 @@
+// ============================================================
+// firestore.rules
+// Security rules for PromptVault (Firebase Spark / Free Plan)
+// Principle: a user can only read/write their OWN data.
+// Deploy via: Firebase Console > Firestore Database > Rules tab
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------
+    // USERS collection
+    // Document ID = user's Auth UID
+    // A user can only read/write their own profile document.
+    // ----------------------------------------------------------
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.email is string
+                    && request.resource.data.name is string;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; // Users cannot delete their profile doc directly
+    }
+
+    // ----------------------------------------------------------
+    // PROMPTS collection
+    // Each prompt document has an "ownerId" field matching the
+    // Auth UID of the user who created it.
+    // ----------------------------------------------------------
+    match /prompts/{promptId} {
+      allow read: if request.auth != null
+                  && resource.data.ownerId == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.title is string
+                    && request.resource.data.content is string
+                    && request.resource.data.category is string;
+
+      allow update: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid
+                    && request.resource.data.ownerId == request.auth.uid;
+
+      allow delete: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ----------------------------------------------------------
+    // FAVORITES collection
+    // Document ID convention: "{userId}_{promptId}"
+    // Each favorite document has a "userId" field.
+    // ----------------------------------------------------------
+    match /favorites/{favoriteId} {
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.promptId is string;
+
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+
+      allow update: if false; // Favorites are only ever created or deleted, never edited
+    }
+
+    // ----------------------------------------------------------
+    // Deny everything else by default
+    // ----------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
