@@ -18,6 +18,7 @@
   --radius: 12px;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
   --shadow-hover: 0 6px 18px rgba(124, 58, 237, 0.15);
+  --primary-contrast: #ffffff;
 }
 
 html {
@@ -40,7 +41,6 @@ html[data-theme="dark"] {
 
 body, .navbar, .sidebar, .modal-box, .auth-wrapper, .stat-card, .prompt-card {
   transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease;
-}
 }
 
 * {
@@ -73,7 +73,7 @@ a {
 
 .btn-primary {
   background: var(--purple);
-  color: var(--white);
+  color: var(--primary-contrast);
   border: none;
   padding: 12px 20px;
   border-radius: var(--radius);
@@ -423,7 +423,7 @@ a {
 }
 
 .category-modal-box {
-  max-width: 420px;
+  max-width: 480px;
 }
 
 #categoryForm {
@@ -432,21 +432,19 @@ a {
 }
 
 #categoryForm label {
-  display: block;
   font-size: 13px;
-  font-weight: 700;
-  margin: 2px 0 7px;
-  color: var(--text-dark);
+  font-weight: 600;
+  margin: 10px 0 4px;
+  color: var(--text-muted);
 }
 
 #categoryForm input {
-  min-height: 46px;
+  width: 100%;
+  min-height: 0;
 }
 
 #categoryForm .btn-primary {
-  min-height: 46px;
-  margin-top: 14px;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .sidebar-heading {
@@ -481,7 +479,7 @@ a {
 
 .category-item.active {
   background: var(--purple);
-  color: var(--white);
+  color: var(--primary-contrast);
   font-weight: 600;
 }
 
@@ -687,6 +685,7 @@ a {
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: var(--shadow-hover);
 }
 
@@ -903,7 +902,7 @@ a {
 .category-item.active {
   background: linear-gradient(135deg, var(--purple), #8b5cf6);
   border-color: rgba(124,58,237,.2);
-  color: var(--white);
+  color: var(--primary-contrast);
   font-weight: 650;
   box-shadow: 0 7px 18px rgba(124,58,237,.22);
   transform: translateX(2px);
@@ -931,7 +930,7 @@ a {
 
 .category-item.active .category-icon {
   background: rgba(255,255,255,.18);
-  color: var(--white);
+  color: var(--primary-contrast);
 }
 
 .category-user-icon {
