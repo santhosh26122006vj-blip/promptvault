@@ -472,7 +472,7 @@ function buildSpecialCategoryItem(value, label) {
   const item = document.createElement("li");
   item.className = "category-item";
   item.dataset.category = value;
-  item.innerHTML = `<span class="category-name">${escapeHtml(label)}</span>`;
+  item.innerHTML = `<span class="category-icon" aria-hidden="true">${value === "All" ? "⌂" : value === "Favorites" ? "★" : "◌"}</span><span class="category-name">${escapeHtml(label)}</span>`;
   attachCategorySelection(item);
   return item;
 }
@@ -481,6 +481,11 @@ function buildCategoryItem(category) {
   const item = document.createElement("li");
   item.className = "category-item category-managed";
   item.dataset.category = category.name;
+
+  const icon = document.createElement("span");
+  icon.className = "category-icon category-user-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "✦";
 
   const name = document.createElement("span");
   name.className = "category-name";
@@ -512,7 +517,7 @@ function buildCategoryItem(category) {
   });
 
   actions.append(renameBtn, deleteBtn);
-  item.append(name, actions);
+  item.append(icon, name, actions);
   attachCategorySelection(item);
   return item;
 }
