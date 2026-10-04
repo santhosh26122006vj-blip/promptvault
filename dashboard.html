@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard – PromptVault</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    (function () {
+      const savedTheme = localStorage.getItem("promptvault-theme") || "light";
+      document.documentElement.dataset.theme = savedTheme;
+    })();
+  </script>
 </head>
 <body class="dashboard-body">
 
@@ -13,6 +19,9 @@
     <button id="sidebarToggle" class="icon-btn" aria-label="Toggle sidebar">☰</button>
     <h2 class="navbar-title">PromptVault</h2>
     <div class="navbar-right">
+      <button id="themeToggleBtn" class="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch theme">
+        <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+      </button>
       <button id="profileBtn" class="icon-btn" title="Profile">👤</button>
       <button id="logoutBtn" class="btn-secondary small">Logout</button>
     </div>
@@ -138,6 +147,11 @@
         <button class="icon-btn" id="closeProfileModal">✕</button>
       </div>
       <form id="profileForm">
+        <div class="profile-pic-row">
+          <img id="profilePicPreview" src="https://via.placeholder.com/80x80.png?text=User" alt="Profile picture" class="profile-pic" />
+          <input type="file" id="profilePicInput" accept="image/*" />
+        </div>
+
         <label for="profileName">Full Name</label>
         <input type="text" id="profileName" required />
 

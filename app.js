@@ -254,7 +254,36 @@ async function initDashboard() {
 // 3. PROMPT CRUD (Add / Edit / Delete / View)
 // ============================================================
 
+function setupThemeUI() {
+  const button = document.getElementById("themeToggleBtn");
+  if (!button) return;
+
+  const applyTheme = (theme) => {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = nextTheme;
+    localStorage.setItem("promptvault-theme", nextTheme);
+
+    const icon = button.querySelector(".theme-toggle-icon");
+    if (icon) icon.textContent = nextTheme === "dark" ? "☾" : "☀";
+    button.setAttribute(
+      "aria-label",
+      nextTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+    );
+    button.title = nextTheme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+  };
+
+  const savedTheme = localStorage.getItem("promptvault-theme") || "light";
+  applyTheme(savedTheme);
+
+  button.addEventListener("click", () => {
+    const current = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    applyTheme(current === "dark" ? "light" : "dark");
+  });
+}
+
 function setupDashboardUI() {
+  setupThemeUI();
+
   const addPromptBtn = document.getElementById("addPromptBtn");
   const promptModal = document.getElementById("promptModal");
   const promptForm = document.getElementById("promptForm");

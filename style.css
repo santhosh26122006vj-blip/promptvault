@@ -13,10 +13,34 @@
   --text-dark: #2b2b33;
   --text-muted: #6b7280;
   --border-color: #e5e7eb;
+  --input-bg: #ffffff;
   --danger: #dc2626;
   --radius: 12px;
   --shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
   --shadow-hover: 0 6px 18px rgba(124, 58, 237, 0.15);
+}
+
+html {
+  background: var(--bg-gray);
+  transition: background-color .25s ease;
+}
+
+html[data-theme="dark"] {
+  --purple-light: #2b1b4f;
+  --white: #17151d;
+  --bg-gray: #0f0d14;
+  --card-white: #17151d;
+  --text-dark: #f5f3ff;
+  --text-muted: #aaa5b8;
+  --border-color: #302b3a;
+  --input-bg: #121018;
+  --shadow: 0 2px 12px rgba(0, 0, 0, .28);
+  --shadow-hover: 0 8px 24px rgba(0, 0, 0, .38);
+}
+
+body, .navbar, .sidebar, .modal-box, .auth-wrapper, .stat-card, .prompt-card {
+  transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
 }
 
 * {
@@ -290,6 +314,33 @@ a {
   gap: 10px;
 }
 
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--card-white);
+  color: var(--text-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform .18s ease, background-color .25s ease, border-color .25s ease;
+}
+
+.theme-toggle:hover {
+  transform: rotate(12deg) scale(1.05);
+  border-color: var(--purple);
+  background: var(--purple-light);
+}
+
+.theme-toggle-icon {
+  font-size: 17px;
+  line-height: 1;
+}
+
 .dashboard-layout {
   display: flex;
   min-height: calc(100vh - 60px);
@@ -373,6 +424,29 @@ a {
 
 .category-modal-box {
   max-width: 420px;
+}
+
+#categoryForm {
+  display: flex;
+  flex-direction: column;
+}
+
+#categoryForm label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 2px 0 7px;
+  color: var(--text-dark);
+}
+
+#categoryForm input {
+  min-height: 46px;
+}
+
+#categoryForm .btn-primary {
+  min-height: 46px;
+  margin-top: 14px;
+  font-size: 14px;
 }
 
 .sidebar-heading {
@@ -640,19 +714,40 @@ a {
 #promptForm input,
 #promptForm textarea,
 #promptForm select,
-#profileForm input {
-  padding: 10px 14px;
+#profileForm input,
+#categoryForm input {
+  width: 100%;
+  padding: 12px 14px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius);
+  border-radius: 10px;
   font-size: 14px;
+  line-height: 1.4;
   outline: none;
+  background: var(--input-bg);
+  color: var(--text-dark);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.03);
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .25s ease;
+}
+
+#promptForm textarea {
+  resize: vertical;
+}
+
+#promptForm input::placeholder,
+#promptForm textarea::placeholder,
+#categoryForm input::placeholder,
+#profileForm input::placeholder {
+  color: var(--text-muted);
+  opacity: .8;
 }
 
 #promptForm input:focus,
 #promptForm textarea:focus,
 #promptForm select:focus,
-#profileForm input:focus {
+#profileForm input:focus,
+#categoryForm input:focus {
   border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, .12);
 }
 
 .view-meta {
@@ -964,4 +1059,37 @@ a {
   .category-item {
     min-height: 44px;
   }
+}
+
+
+/* ============================================================
+   DARK THEME DETAILS
+   ============================================================ */
+
+html[data-theme="dark"] .category-action-btn {
+  background: rgba(255,255,255,.08);
+  color: var(--text-muted);
+}
+
+html[data-theme="dark"] .category-action-btn:hover {
+  background: rgba(255,255,255,.15);
+  color: var(--text-dark);
+}
+
+html[data-theme="dark"] .category-user-icon {
+  background: #24183d;
+}
+
+html[data-theme="dark"] .prompt-card-actions button {
+  background: var(--card-white);
+  color: var(--text-dark);
+}
+
+html[data-theme="dark"] select option {
+  background: #17151d;
+  color: #f5f3ff;
+}
+
+html[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, .68);
 }
