@@ -303,6 +303,78 @@ a {
   overflow-y: auto;
 }
 
+.sidebar-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0 4px 0 8px;
+}
+
+.sidebar-heading-row .sidebar-heading {
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+.category-add-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--purple);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.category-add-btn:hover {
+  background: var(--purple-light);
+}
+
+.category-managed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.category-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.category-action-btn {
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.category-action-btn:hover {
+  background: rgba(255,255,255,0.75);
+}
+
+.category-item.active .category-action-btn:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+.category-modal-box {
+  max-width: 420px;
+}
+
 .sidebar-heading {
   font-size: 13px;
   color: var(--text-muted);

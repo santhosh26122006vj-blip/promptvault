@@ -68,6 +68,31 @@ service cloud.firestore {
     }
 
     // ----------------------------------------------------------
+    // USER CATEGORIES collection (nested under each user)
+    // Category names are user-owned. Existing prompts remain in the
+    // top-level prompts collection for backward compatibility.
+    // ----------------------------------------------------------
+    match /users/{userId}/categories/{categoryId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.ownerId == userId
+                    && request.resource.data.name is string;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && resource.data.ownerId == userId
+                    && request.resource.data.ownerId == userId
+                    && resource.data.isFallback != true
+                    && request.resource.data.isFallback == resource.data.isFallback
+                    && request.resource.data.isBuiltin == resource.data.isBuiltin
+                    && request.resource.data.name is string;
+      allow delete: if request.auth != null
+                    && request.auth.uid == userId
+                    && resource.data.ownerId == userId
+                    && resource.data.isFallback != true;
+    }
+
+    // ----------------------------------------------------------
     // Deny everything else by default
     // ----------------------------------------------------------
     match /{document=**} {

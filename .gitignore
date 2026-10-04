@@ -1,0 +1,23 @@
+# Firebase
+.firebase/
+.firebaserc
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Node (in case Firebase CLI or Live Server tooling is used locally)
+node_modules/
+npm-debug.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Environment / local config (if you choose to externalize Firebase keys later)
+.env
+.env.local

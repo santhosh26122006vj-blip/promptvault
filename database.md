@@ -35,7 +35,7 @@ This document describes the Firestore collections and fields used by PromptVault
 |---|---|---|
 | `title` | string | Prompt title |
 | `content` | string | Full prompt text |
-| `category` | string | One of the 25 predefined categories or a custom one |
+| `category` | string | User category name; kept as a string for backward compatibility |
 | `tags` | array\<string\> | Optional keyword tags |
 | `aiModel` | string | AI model the prompt was written for (e.g. "ChatGPT", "Claude") |
 | `ownerId` | string | Auth UID of the creator (used for security rules) |
@@ -76,6 +76,25 @@ This document describes the Firestore collections and fields used by PromptVault
 ```
 
 ---
+
+
+## 4. `users/{uid}/categories` Subcollection
+
+Categories are now stored per authenticated user. This is additive: the existing `prompts.category` string field is intentionally kept so current prompt documents do not need a destructive migration.
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | User-visible category name |
+| `ownerId` | string | Auth UID of the owner |
+| `isBuiltin` | boolean | Whether it came from the original built-in list |
+| `isFallback` | boolean | `true` only for protected `Uncategorized` |
+| `createdAt` | timestamp | Category creation time |
+
+### Backward compatibility
+
+When an existing user opens the updated dashboard, the original built-in categories are created in their own category subcollection if they are missing. Any category names already present on their old prompts are also preserved. Existing prompt documents are not rewritten during this initialization.
+
+Users can add, rename, and delete categories. Renaming updates only that user's prompts from the old category name to the new name. Deleting a category moves its prompts to `Uncategorized` instead of deleting them. `Uncategorized` is protected so there is always a safe destination for prompts when a category is removed.
 
 ## 4. Why This Structure?
 

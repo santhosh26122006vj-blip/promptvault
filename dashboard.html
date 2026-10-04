@@ -22,35 +22,12 @@
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-      <h3 class="sidebar-heading">Categories</h3>
+      <div class="sidebar-heading-row">
+        <h3 class="sidebar-heading">Categories</h3>
+        <button id="addCategoryBtn" class="category-add-btn" type="button" title="Add category" aria-label="Add category">+</button>
+      </div>
       <ul class="category-list" id="categoryList">
-        <li class="category-item active" data-category="All">All Prompts</li>
-        <li class="category-item" data-category="Favorites">⭐ Favorites</li>
-        <li class="category-item" data-category="Writing">Writing</li>
-        <li class="category-item" data-category="Programming">Programming</li>
-        <li class="category-item" data-category="Graphic Design">Graphic Design</li>
-        <li class="category-item" data-category="Video Editing">Video Editing</li>
-        <li class="category-item" data-category="Marketing">Marketing</li>
-        <li class="category-item" data-category="Business">Business</li>
-        <li class="category-item" data-category="Education">Education</li>
-        <li class="category-item" data-category="Productivity">Productivity</li>
-        <li class="category-item" data-category="AI Tools">AI Tools</li>
-        <li class="category-item" data-category="Coding">Coding</li>
-        <li class="category-item" data-category="Web Development">Web Development</li>
-        <li class="category-item" data-category="UI/UX">UI/UX</li>
-        <li class="category-item" data-category="Social Media">Social Media</li>
-        <li class="category-item" data-category="YouTube">YouTube</li>
-        <li class="category-item" data-category="Blogging">Blogging</li>
-        <li class="category-item" data-category="Resume">Resume</li>
-        <li class="category-item" data-category="Interview">Interview</li>
-        <li class="category-item" data-category="Story Writing">Story Writing</li>
-        <li class="category-item" data-category="Research">Research</li>
-        <li class="category-item" data-category="Excel">Excel</li>
-        <li class="category-item" data-category="Finance">Finance</li>
-        <li class="category-item" data-category="Health">Health</li>
-        <li class="category-item" data-category="Travel">Travel</li>
-        <li class="category-item" data-category="Gaming">Portrait</li>
-        <li class="category-item" data-category="Custom Category">Custom Category</li>
+        <!-- Categories are loaded from the signed-in user's Firestore data. -->
       </ul>
     </aside>
 
@@ -103,31 +80,7 @@
 
         <label for="promptCategory">Category</label>
         <select id="promptCategory" required>
-          <option value="Writing">Writing</option>
-          <option value="Programming">Programming</option>
-          <option value="Graphic Design">Graphic Design</option>
-          <option value="Video Editing">Video Editing</option>
-          <option value="Marketing">Marketing</option>
-          <option value="Business">Business</option>
-          <option value="Education">Education</option>
-          <option value="Productivity">Productivity</option>
-          <option value="AI Tools">AI Tools</option>
-          <option value="Coding">Coding</option>
-          <option value="Web Development">Web Development</option>
-          <option value="UI/UX">UI/UX</option>
-          <option value="Social Media">Social Media</option>
-          <option value="YouTube">YouTube</option>
-          <option value="Blogging">Blogging</option>
-          <option value="Resume">Resume</option>
-          <option value="Interview">Interview</option>
-          <option value="Story Writing">Story Writing</option>
-          <option value="Research">Research</option>
-          <option value="Excel">Excel</option>
-          <option value="Finance">Finance</option>
-          <option value="Health">Health</option>
-          <option value="Travel">Travel</option>
-          <option value="Gaming">Portrait</option>
-          <option value="Custom Category">Custom Category</option>
+          <!-- Options are populated from the user's categories in app.js. -->
         </select>
 
         <label for="promptTags">Tags (comma separated)</label>
@@ -137,6 +90,22 @@
         <input type="text" id="promptAiModel" placeholder="e.g. ChatGPT, Gemini, Claude" />
 
         <button type="submit" class="btn-primary full-width">Save Prompt</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD / RENAME CATEGORY MODAL -->
+  <div id="categoryModal" class="modal-overlay hidden">
+    <div class="modal-box category-modal-box">
+      <div class="modal-header">
+        <h3 id="categoryModalTitle">Add Category</h3>
+        <button class="icon-btn" id="closeCategoryModal" type="button">✕</button>
+      </div>
+      <form id="categoryForm">
+        <input type="hidden" id="categoryId" />
+        <label for="categoryName">Category Name</label>
+        <input type="text" id="categoryName" maxlength="50" placeholder="e.g. Prompt Engineering" required />
+        <button type="submit" class="btn-primary full-width">Save Category</button>
       </form>
     </div>
   </div>

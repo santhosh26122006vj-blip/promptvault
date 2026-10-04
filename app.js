@@ -29,6 +29,8 @@ import {
   deleteDoc,
   collection,
   addDoc,
+  getDocs,
+  writeBatch,
   query,
   where,
   onSnapshot,
@@ -48,6 +50,36 @@ let allPrompts = [];           // Cached list of the user's prompts from Firesto
 let favoriteIds = new Set();   // Set of promptIds marked favorite
 let activeCategory = "All";    // Currently selected sidebar category
 let searchTerm = "";           // Currently typed search text
+let categories = [];             // User-owned categories (legacy prompts remain string-based)
+let categoryInitPromise = null;
+const DEFAULT_CATEGORIES = [
+  "Writing",
+  "Programming",
+  "Graphic Design",
+  "Video Editing",
+  "Marketing",
+  "Business",
+  "Education",
+  "Productivity",
+  "AI Tools",
+  "Coding",
+  "Web Development",
+  "UI/UX",
+  "Social Media",
+  "YouTube",
+  "Blogging",
+  "Resume",
+  "Interview",
+  "Story Writing",
+  "Research",
+  "Excel",
+  "Finance",
+  "Health",
+  "Travel",
+  "Gaming",
+  "Custom Category"
+];
+const FALLBACK_CATEGORY = "Uncategorized";
 
 // ============================================================
 // 1. AUTH: Register / Login / Logout / Forgot Password
@@ -192,9 +224,20 @@ async function initDashboard() {
 
   // Live listener for this user's prompts
   const promptsQuery = query(collection(db, "prompts"), where("ownerId", "==", currentUser.uid));
-  onSnapshot(promptsQuery, (snapshot) => {
+  onSnapshot(promptsQuery, async (snapshot) => {
     allPrompts = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    await ensureCategories(allPrompts);
     renderPrompts();
+  });
+
+  // Live listener for this user's categories. Existing prompts are NOT rewritten just by loading the dashboard.
+  const categoriesRef = collection(db, "users", currentUser.uid, "categories");
+  onSnapshot(categoriesRef, (snapshot) => {
+    categories = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    renderCategoryUI();
+    renderPromptCategoryOptions();
   });
 
   // Live listener for this user's favorites
@@ -231,15 +274,14 @@ function setupDashboardUI() {
     renderPrompts();
   });
 
-  // Category sidebar clicks
-  document.querySelectorAll(".category-item").forEach((item) => {
-    item.addEventListener("click", () => {
-      document.querySelectorAll(".category-item").forEach((el) => el.classList.remove("active"));
-      item.classList.add("active");
-      activeCategory = item.dataset.category;
-      renderPrompts();
-      document.getElementById("sidebar").classList.remove("sidebar-open");
-    });
+  // Category sidebar clicks are attached dynamically in renderCategoryUI().
+  document.getElementById("addCategoryBtn").addEventListener("click", () => openCategoryModal());
+  document.getElementById("closeCategoryModal").addEventListener("click", () => {
+    document.getElementById("categoryModal").classList.add("hidden");
+  });
+  document.getElementById("categoryForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await saveCategory();
   });
 
   // View modal close
@@ -277,6 +319,7 @@ function openPromptModal(prompt = null) {
     document.getElementById("promptId").value = prompt.id;
     document.getElementById("promptTitle").value = prompt.title;
     document.getElementById("promptContent").value = prompt.content;
+    renderPromptCategoryOptions(prompt.category);
     document.getElementById("promptCategory").value = prompt.category;
     document.getElementById("promptTags").value = (prompt.tags || []).join(", ");
     document.getElementById("promptAiModel").value = prompt.aiModel || "";
@@ -284,9 +327,275 @@ function openPromptModal(prompt = null) {
     title.textContent = "Add Prompt";
     document.getElementById("promptForm").reset();
     document.getElementById("promptId").value = "";
+    renderPromptCategoryOptions();
   }
 
   modal.classList.remove("hidden");
+}
+
+async function ensureCategories(prompts) {
+  if (!currentUser) return;
+  if (categoryInitPromise) return categoryInitPromise;
+
+  categoryInitPromise = (async () => {
+    const categoryCollection = collection(db, "users", currentUser.uid, "categories");
+    const snapshot = await getDocs(categoryCollection);
+    const existingNames = new Set(snapshot.docs.map((d) => (d.data().name || "").trim().toLowerCase()));
+    const existingIds = new Set(snapshot.docs.map((d) => d.id));
+    const missing = [];
+
+    DEFAULT_CATEGORIES.forEach((name, index) => {
+    const id = `builtin-${String(index + 1).padStart(2, "0")}`;
+    if (!existingIds.has(id) && !existingNames.has(name.toLowerCase())) {
+      missing.push({ id, name, isBuiltin: true });
+    }
+    });
+
+    if (!existingNames.has(FALLBACK_CATEGORY.toLowerCase())) {
+      missing.push({ id: "uncategorized", name: FALLBACK_CATEGORY, isBuiltin: false, isFallback: true });
+    }
+
+    // Preserve any category values already used by legacy prompts, including old custom categories.
+    const usedNames = new Set();
+    prompts.forEach((prompt) => {
+      const name = (prompt.category || "").trim();
+      if (name) usedNames.add(name);
+    });
+    usedNames.forEach((name) => {
+      if (!existingNames.has(name.toLowerCase()) && !missing.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+        missing.push({ id: `legacy-${stableHash(name)}`, name, isBuiltin: false, isLegacy: true });
+      }
+    });
+
+    if (missing.length) {
+      const batch = writeBatch(db);
+      missing.forEach((category) => {
+        batch.set(doc(categoryCollection, category.id), {
+          name: category.name,
+          ownerId: currentUser.uid,
+          isBuiltin: !!category.isBuiltin,
+          isFallback: !!category.isFallback,
+          createdAt: serverTimestamp()
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+  })();
+
+  try {
+    await categoryInitPromise;
+  } finally {
+    categoryInitPromise = null;
+  }
+}
+
+function stableHash(value) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function renderCategoryUI() {
+  const list = document.getElementById("categoryList");
+  if (!list) return;
+
+  list.innerHTML = "";
+  list.appendChild(buildSpecialCategoryItem("All", "All Prompts"));
+  list.appendChild(buildSpecialCategoryItem("Favorites", "⭐ Favorites"));
+
+  categories.forEach((category) => {
+    list.appendChild(buildCategoryItem(category));
+  });
+
+  // Keep the current selection when categories refresh; otherwise fall back to All.
+  const active = [...list.querySelectorAll(".category-item")].find((item) => item.dataset.category === activeCategory);
+  if (active) active.classList.add("active");
+  else {
+    activeCategory = "All";
+    list.querySelector('[data-category="All"]')?.classList.add("active");
+  }
+}
+
+function buildSpecialCategoryItem(value, label) {
+  const item = document.createElement("li");
+  item.className = "category-item";
+  item.dataset.category = value;
+  item.innerHTML = `<span class="category-name">${escapeHtml(label)}</span>`;
+  attachCategorySelection(item);
+  return item;
+}
+
+function buildCategoryItem(category) {
+  const item = document.createElement("li");
+  item.className = "category-item category-managed";
+  item.dataset.category = category.name;
+
+  const name = document.createElement("span");
+  name.className = "category-name";
+  name.textContent = category.name;
+
+  const actions = document.createElement("span");
+  actions.className = "category-actions";
+
+  const renameBtn = document.createElement("button");
+  renameBtn.type = "button";
+  renameBtn.className = "category-action-btn";
+  renameBtn.title = `Rename ${category.name}`;
+  renameBtn.setAttribute("aria-label", `Rename ${category.name}`);
+  renameBtn.textContent = "✏️";
+  renameBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openCategoryModal(category);
+  });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "category-action-btn delete-category-action";
+  deleteBtn.title = `Delete ${category.name}`;
+  deleteBtn.setAttribute("aria-label", `Delete ${category.name}`);
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    await deleteCategory(category);
+  });
+
+  actions.append(renameBtn, deleteBtn);
+  item.append(name, actions);
+  attachCategorySelection(item);
+  return item;
+}
+
+function attachCategorySelection(item) {
+  item.addEventListener("click", () => {
+    document.querySelectorAll(".category-item").forEach((el) => el.classList.remove("active"));
+    item.classList.add("active");
+    activeCategory = item.dataset.category;
+    renderPrompts();
+    document.getElementById("sidebar").classList.remove("sidebar-open");
+  });
+}
+
+function renderPromptCategoryOptions(selectedCategory = "") {
+  const select = document.getElementById("promptCategory");
+  if (!select) return;
+
+  const names = categories.map((category) => category.name);
+  if (selectedCategory && !names.includes(selectedCategory)) names.push(selectedCategory);
+  if (!names.length) names.push(...DEFAULT_CATEGORIES, FALLBACK_CATEGORY);
+
+  select.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+  if (selectedCategory) select.value = selectedCategory;
+}
+
+function openCategoryModal(category = null) {
+  const modal = document.getElementById("categoryModal");
+  const title = document.getElementById("categoryModalTitle");
+  const input = document.getElementById("categoryName");
+  const idInput = document.getElementById("categoryId");
+
+  title.textContent = category ? "Rename Category" : "Add Category";
+  input.value = category ? category.name : "";
+  idInput.value = category ? category.id : "";
+  modal.classList.remove("hidden");
+  setTimeout(() => input.focus(), 0);
+}
+
+async function saveCategory() {
+  const id = document.getElementById("categoryId").value;
+  const name = document.getElementById("categoryName").value.trim();
+
+  if (!name) {
+    showToast("Please enter a category name.", "error");
+    return;
+  }
+  if (name.length > 50) {
+    showToast("Category name must be 50 characters or less.", "error");
+    return;
+  }
+
+  const duplicate = categories.some((category) => category.id !== id && category.name.trim().toLowerCase() === name.toLowerCase());
+  if (duplicate) {
+    showToast("That category already exists.", "error");
+    return;
+  }
+
+  try {
+    if (!id) {
+      await addDoc(collection(db, "users", currentUser.uid, "categories"), {
+        name,
+        ownerId: currentUser.uid,
+        isBuiltin: false,
+        isFallback: false,
+        createdAt: serverTimestamp()
+      });
+      activeCategory = name;
+      showToast("Category added!", "success");
+    } else {
+      const category = categories.find((item) => item.id === id);
+      if (!category) return;
+      if (category.isFallback) {
+        showToast("Uncategorized is a protected fallback category.", "error");
+        return;
+      }
+
+      const oldName = category.name;
+      await renamePromptCategory(oldName, name);
+      await updateDoc(doc(db, "users", currentUser.uid, "categories", id), { name });
+      if (activeCategory === oldName) activeCategory = name;
+      showToast("Category renamed!", "success");
+    }
+
+    document.getElementById("categoryModal").classList.add("hidden");
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save category.", "error");
+  }
+}
+
+async function renamePromptCategory(oldName, newName) {
+  if (oldName === newName) return;
+  const promptQuery = query(collection(db, "prompts"), where("ownerId", "==", currentUser.uid));
+  const snapshot = await getDocs(promptQuery);
+  const matchingDocs = snapshot.docs.filter((promptDoc) => promptDoc.data().category === oldName);
+  await updatePromptCategoriesInBatches(matchingDocs, newName);
+}
+
+async function deleteCategory(category) {
+  if (category.isFallback || category.name === FALLBACK_CATEGORY) {
+    showToast("Uncategorized is a protected fallback category.", "error");
+    return;
+  }
+
+  const confirmed = confirm(`Delete "${category.name}"? Prompts in this category will be moved to Uncategorized, not deleted.`);
+  if (!confirmed) return;
+
+  try {
+    const promptQuery = query(collection(db, "prompts"), where("ownerId", "==", currentUser.uid));
+    const snapshot = await getDocs(promptQuery);
+    const matchingDocs = snapshot.docs.filter((promptDoc) => promptDoc.data().category === category.name);
+    await updatePromptCategoriesInBatches(matchingDocs, FALLBACK_CATEGORY);
+    await deleteDoc(doc(db, "users", currentUser.uid, "categories", category.id));
+
+    if (activeCategory === category.name) activeCategory = "All";
+    showToast("Category deleted. Prompts were kept safe.", "success");
+  } catch (err) {
+    console.error(err);
+    showToast("Could not delete category.", "error");
+  }
+}
+
+async function updatePromptCategoriesInBatches(promptDocs, newCategory) {
+  // Firestore batches are limited to 500 writes.
+  for (let start = 0; start < promptDocs.length; start += 450) {
+    const batch = writeBatch(db);
+    promptDocs.slice(start, start + 450).forEach((promptDoc) => {
+      batch.update(promptDoc.ref, { category: newCategory });
+    });
+    if (start < promptDocs.length) await batch.commit();
+  }
 }
 
 async function savePrompt() {

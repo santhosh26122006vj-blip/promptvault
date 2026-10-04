@@ -12,7 +12,7 @@ PromptVault is a simple, clean web app for saving, organizing, and reusing your 
 - Dashboard with welcome message, total prompt count, and search
 - Add / Edit / Delete / View / Copy prompts
 - Favorite prompts with one click
-- 25 built-in prompt categories + custom category support
+- User-managed categories: add, rename, and delete (including the original built-in categories)
 - Profile editing: name, password, profile picture (Firebase Storage)
 - Fully responsive (desktop, tablet, mobile)
 
@@ -96,6 +96,7 @@ See `database.md` for full field-level details.
 | `users` | User profile info |
 | `prompts` | All saved prompts |
 | `favorites` | User-to-prompt favorite mapping |
+| `users/{uid}/categories` | User-owned category definitions |
 
 ---
 
@@ -122,3 +123,8 @@ PromptVault/
 - All data operations use Firebase's free Spark plan — no billing required.
 - Firestore Security Rules ensure a user can only read/write their own prompts and favorites (see `firestore.rules`).
 - The `onAuthStateChanged` listener in `app.js` automatically redirects unauthenticated users away from `dashboard.html` and logged-in users away from `index.html`.
+
+
+### Category migration / existing users
+
+The category update is backward-compatible with existing prompt data. The app keeps the existing `prompts.category` string field, initializes the original built-in categories per user when needed, and preserves any legacy category names already used by that user's prompts. Renaming a category updates only that user's matching prompts. Deleting a category moves its prompts to the protected `Uncategorized` category instead of deleting the prompts.
