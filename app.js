@@ -340,46 +340,78 @@ async function ensureCategories(prompts) {
   categoryInitPromise = (async () => {
     const categoryCollection = collection(db, "users", currentUser.uid, "categories");
     const snapshot = await getDocs(categoryCollection);
-    const existingNames = new Set(snapshot.docs.map((d) => (d.data().name || "").trim().toLowerCase()));
-    const existingIds = new Set(snapshot.docs.map((d) => d.id));
-    const missing = [];
 
-    DEFAULT_CATEGORIES.forEach((name, index) => {
-    const id = `builtin-${String(index + 1).padStart(2, "0")}`;
-    if (!existingIds.has(id) && !existingNames.has(name.toLowerCase())) {
-      missing.push({ id, name, isBuiltin: true });
-    }
-    });
+    // Only create the default categories during the initial setup.
+    // If the collection already has categories, never recreate a
+    // category the user intentionally deleted.
+    if (snapshot.empty) {
+      const missing = [];
 
-    if (!existingNames.has(FALLBACK_CATEGORY.toLowerCase())) {
-      missing.push({ id: "uncategorized", name: FALLBACK_CATEGORY, isBuiltin: false, isFallback: true });
-    }
-
-    // Preserve any category values already used by legacy prompts, including old custom categories.
-    const usedNames = new Set();
-    prompts.forEach((prompt) => {
-      const name = (prompt.category || "").trim();
-      if (name) usedNames.add(name);
-    });
-    usedNames.forEach((name) => {
-      if (!existingNames.has(name.toLowerCase()) && !missing.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-        missing.push({ id: `legacy-${stableHash(name)}`, name, isBuiltin: false, isLegacy: true });
-      }
-    });
-
-    if (missing.length) {
-      const batch = writeBatch(db);
-      missing.forEach((category) => {
-        batch.set(doc(categoryCollection, category.id), {
-          name: category.name,
-          ownerId: currentUser.uid,
-          isBuiltin: !!category.isBuiltin,
-          isFallback: !!category.isFallback,
-          createdAt: serverTimestamp()
-        }, { merge: true });
+      DEFAULT_CATEGORIES.forEach((name, index) => {
+        const id = `builtin-${String(index + 1).padStart(2, "0")}`;
+        missing.push({
+          id,
+          name,
+          isBuiltin: true,
+          isFallback: false
+        });
       });
-      await batch.commit();
+
+      // Protected fallback category used when a category is deleted.
+      missing.push({
+        id: "uncategorized",
+        name: FALLBACK_CATEGORY,
+        isBuiltin: false,
+        isFallback: true
+      });
+
+      // Preserve category names already used by existing prompts,
+      // including legacy/custom categories from before this feature.
+      const usedNames = new Set();
+      prompts.forEach((prompt) => {
+        const name = (prompt.category || "").trim();
+        if (name) usedNames.add(name);
+      });
+
+      usedNames.forEach((name) => {
+        const alreadyExists = missing.some(
+          (category) => category.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (!alreadyExists) {
+          missing.push({
+            id: `legacy-${stableHash(name)}`,
+            name,
+            isBuiltin: false,
+            isFallback: false,
+            isLegacy: true
+          });
+        }
+      });
+
+      if (missing.length) {
+        const batch = writeBatch(db);
+
+        missing.forEach((category) => {
+          batch.set(
+            doc(categoryCollection, category.id),
+            {
+              name: category.name,
+              ownerId: currentUser.uid,
+              isBuiltin: !!category.isBuiltin,
+              isFallback: !!category.isFallback,
+              createdAt: serverTimestamp()
+            },
+            { merge: true }
+          );
+        });
+
+        await batch.commit();
+      }
     }
+
+    // If the collection is not empty, intentionally do nothing.
+    // This makes category deletion permanent across page refreshes.
   })();
 
   try {
@@ -388,7 +420,6 @@ async function ensureCategories(prompts) {
     categoryInitPromise = null;
   }
 }
-
 function stableHash(value) {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i++) {
