@@ -339,79 +339,92 @@ async function ensureCategories(prompts) {
 
   categoryInitPromise = (async () => {
     const categoryCollection = collection(db, "users", currentUser.uid, "categories");
-    const snapshot = await getDocs(categoryCollection);
+    const settingsRef = doc(db, "users", currentUser.uid, "categorySettings", "config");
+    const [settingsSnap, snapshot] = await Promise.all([
+      getDoc(settingsRef),
+      getDocs(categoryCollection)
+    ]);
 
-    // Only create the default categories during the initial setup.
-    // If the collection already has categories, never recreate a
-    // category the user intentionally deleted.
-    if (snapshot.empty) {
-      const missing = [];
-
-      DEFAULT_CATEGORIES.forEach((name, index) => {
-        const id = `builtin-${String(index + 1).padStart(2, "0")}`;
-        missing.push({
-          id,
-          name,
-          isBuiltin: true,
-          isFallback: false
-        });
-      });
-
-      // Protected fallback category used when a category is deleted.
-      missing.push({
-        id: "uncategorized",
-        name: FALLBACK_CATEGORY,
-        isBuiltin: false,
-        isFallback: true
-      });
-
-      // Preserve category names already used by existing prompts,
-      // including legacy/custom categories from before this feature.
-      const usedNames = new Set();
-      prompts.forEach((prompt) => {
-        const name = (prompt.category || "").trim();
-        if (name) usedNames.add(name);
-      });
-
-      usedNames.forEach((name) => {
-        const alreadyExists = missing.some(
-          (category) => category.name.toLowerCase() === name.toLowerCase()
-        );
-
-        if (!alreadyExists) {
-          missing.push({
-            id: `legacy-${stableHash(name)}`,
-            name,
-            isBuiltin: false,
-            isFallback: false,
-            isLegacy: true
-          });
-        }
-      });
-
-      if (missing.length) {
-        const batch = writeBatch(db);
-
-        missing.forEach((category) => {
-          batch.set(
-            doc(categoryCollection, category.id),
-            {
-              name: category.name,
-              ownerId: currentUser.uid,
-              isBuiltin: !!category.isBuiltin,
-              isFallback: !!category.isFallback,
-              createdAt: serverTimestamp()
-            },
-            { merge: true }
-          );
-        });
-
-        await batch.commit();
-      }
+    // The initialization marker makes category deletion permanent.
+    // Once the user has initialized categories, never recreate a category
+    // just because its document is missing.
+    if (settingsSnap.exists() && settingsSnap.data().initialized === true) {
+      return;
     }
 
-    // If the collection is not empty, intentionally do nothing.
-    // This makes category deletion permanent across page refreshes.
+    // Existing users from an earlier version already have category documents.
+    // Mark them initialized without recreating anything they may have deleted.
+    if (!snapshot.empty) {
+      await setDoc(settingsRef, {
+        initialized: true,
+        ownerId: currentUser.uid,
+        initializedAt: serverTimestamp()
+      }, { merge: true });
+      return;
+    }
+
+    // First-time category setup: create the original built-in categories.
+    // Uncategorized is NOT stored as a normal category. It is a system
+    // navigation/filter item and is only used as a fallback prompt value.
+    const missing = [];
+
+    DEFAULT_CATEGORIES.forEach((name, index) => {
+      const id = `builtin-${String(index + 1).padStart(2, "0")}`;
+      missing.push({
+        id,
+        name,
+        isBuiltin: true,
+        isFallback: false
+      });
+    });
+
+    // Preserve category names already used by existing prompts, including
+    // legacy/custom categories from before this feature.
+    const usedNames = new Set();
+    prompts.forEach((prompt) => {
+      const name = (prompt.category || "").trim();
+      if (name && name !== FALLBACK_CATEGORY) usedNames.add(name);
+    });
+
+    usedNames.forEach((name) => {
+      const alreadyExists = missing.some(
+        (category) => category.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (!alreadyExists) {
+        missing.push({
+          id: `legacy-${stableHash(name)}`,
+          name,
+          isBuiltin: false,
+          isFallback: false,
+          isLegacy: true
+        });
+      }
+    });
+
+    const batch = writeBatch(db);
+
+    missing.forEach((category) => {
+      batch.set(
+        doc(categoryCollection, category.id),
+        {
+          name: category.name,
+          ownerId: currentUser.uid,
+          isBuiltin: !!category.isBuiltin,
+          isFallback: false,
+          createdAt: serverTimestamp()
+        },
+        { merge: true }
+      );
+    });
+
+    batch.set(settingsRef, {
+      initialized: true,
+      ownerId: currentUser.uid,
+      initializedAt: serverTimestamp()
+    }, { merge: true });
+
+    await batch.commit();
   })();
 
   try {
@@ -436,10 +449,15 @@ function renderCategoryUI() {
   list.innerHTML = "";
   list.appendChild(buildSpecialCategoryItem("All", "All Prompts"));
   list.appendChild(buildSpecialCategoryItem("Favorites", "⭐ Favorites"));
+  list.appendChild(buildSpecialCategoryItem(FALLBACK_CATEGORY, "Uncategorized"));
 
-  categories.forEach((category) => {
-    list.appendChild(buildCategoryItem(category));
-  });
+  // Only user-managed categories appear below the system items.
+  // Uncategorized is intentionally excluded from this list.
+  categories
+    .filter((category) => !category.isFallback && category.name !== FALLBACK_CATEGORY)
+    .forEach((category) => {
+      list.appendChild(buildCategoryItem(category));
+    });
 
   // Keep the current selection when categories refresh; otherwise fall back to All.
   const active = [...list.querySelectorAll(".category-item")].find((item) => item.dataset.category === activeCategory);
@@ -513,9 +531,16 @@ function renderPromptCategoryOptions(selectedCategory = "") {
   const select = document.getElementById("promptCategory");
   if (!select) return;
 
-  const names = categories.map((category) => category.name);
+  const names = categories
+    .filter((category) => !category.isFallback && category.name !== FALLBACK_CATEGORY)
+    .map((category) => category.name);
+
+  // Uncategorized is a system fallback and is available as a prompt value,
+  // but it is not a user-managed category.
+  names.push(FALLBACK_CATEGORY);
+
   if (selectedCategory && !names.includes(selectedCategory)) names.push(selectedCategory);
-  if (!names.length) names.push(...DEFAULT_CATEGORIES, FALLBACK_CATEGORY);
+  if (!names.length) names.push(FALLBACK_CATEGORY);
 
   select.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
   if (selectedCategory) select.value = selectedCategory;
@@ -547,7 +572,16 @@ async function saveCategory() {
     return;
   }
 
-  const duplicate = categories.some((category) => category.id !== id && category.name.trim().toLowerCase() === name.toLowerCase());
+  if (name.toLowerCase() === FALLBACK_CATEGORY.toLowerCase()) {
+    showToast("Uncategorized is a system feature and cannot be created or renamed.", "error");
+    return;
+  }
+
+  const duplicate = categories.some((category) =>
+    category.id !== id &&
+    !category.isFallback &&
+    category.name.trim().toLowerCase() === name.toLowerCase()
+  );
   if (duplicate) {
     showToast("That category already exists.", "error");
     return;
@@ -567,8 +601,8 @@ async function saveCategory() {
     } else {
       const category = categories.find((item) => item.id === id);
       if (!category) return;
-      if (category.isFallback) {
-        showToast("Uncategorized is a protected fallback category.", "error");
+      if (category.isFallback || category.name === FALLBACK_CATEGORY) {
+        showToast("Uncategorized is a system feature and cannot be renamed.", "error");
         return;
       }
 
@@ -596,7 +630,7 @@ async function renamePromptCategory(oldName, newName) {
 
 async function deleteCategory(category) {
   if (category.isFallback || category.name === FALLBACK_CATEGORY) {
-    showToast("Uncategorized is a protected fallback category.", "error");
+    showToast("Uncategorized is a system feature and cannot be deleted.", "error");
     return;
   }
 
@@ -720,6 +754,8 @@ function renderPrompts() {
   // Category filter
   if (activeCategory === "Favorites") {
     filtered = filtered.filter((p) => favoriteIds.has(p.id));
+  } else if (activeCategory === FALLBACK_CATEGORY) {
+    filtered = filtered.filter((p) => !p.category || p.category === FALLBACK_CATEGORY);
   } else if (activeCategory !== "All") {
     filtered = filtered.filter((p) => p.category === activeCategory);
   }

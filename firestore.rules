@@ -93,6 +93,22 @@ service cloud.firestore {
     }
 
     // ----------------------------------------------------------
+    // USER CATEGORY SETTINGS
+    // Stores a per-user initialization marker so deleted
+    // categories are never recreated after a page refresh.
+    // ----------------------------------------------------------
+    match /users/{userId}/categorySettings/{settingId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && request.resource.data.ownerId == userId
+                            && request.resource.data.initialized == true;
+
+      allow delete: if false;
+    }
+
     // Deny everything else by default
     // ----------------------------------------------------------
     match /{document=**} {
